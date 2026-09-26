@@ -1,0 +1,122 @@
+{
+	"type": "machine",
+	"name": "MakerBot Method 0.4 nozzles",
+	"inherits": "MyMarlin 0.4 nozzle",
+	"from": "system",
+	"setting_id": "MakerBotMethod04",
+	"instantiation": "true",
+	"printer_model": "MakerBot Method",
+	"gcode_flavor": "marlin",
+	"machine_start_gcode": "G90 ; use absolute coordinates\nM83 ; extruder relative mode\nM104 S[first_layer_temperature] T0 ; set extruder 0 temp\nM104 S[first_layer_temperature] T1 ; set extruder 1 temp\nM140 S[first_layer_bed_temperature] ; set bed temp\nG28 ; home all axes\nM190 S[first_layer_bed_temperature] ; wait for bed temp\nM109 S[first_layer_temperature] T0 ; wait for extruder 0 temp\nG1 Z10 F3000 ; raise nozzle\nG92 E0.0",
+	"machine_end_gcode": "G91 ; relative positioning\nG1 E-1.0 F2100 ; retract\nG92 E0.0\nG1 Z10 F3000 ; move print head up\nG90 ; absolute positioning\nM104 S0 T0 ; turn off extruder 0\nM104 S0 T1 ; turn off extruder 1\nM140 S0 ; turn off heatbed\nM107 ; turn off fan\nG1 X0 Y105 F3000 ; park print head\nM84 ; disable motors",
+	"max_layer_height": [
+		"0.32",
+		"0.32"
+	],
+	"min_layer_height": [
+		"0.08",
+		"0.08"
+	],
+	"nozzle_diameter": [
+		"0.4",
+		"0.4"
+	],
+	"printable_area": [
+		"0x0",
+		"152x0",
+		"152x190",
+		"0x190"
+	],
+	"printable_height": "196",
+	"retraction_length": [
+		"0.9",
+		"0.9"
+	],
+	"retraction_minimum_travel": [
+		"1",
+		"1"
+	],
+	"retraction_speed": [
+		"45",
+		"45"
+	],
+	"deretraction_speed": [
+		"35",
+		"35"
+	],
+	"wipe": [
+		"0",
+		"0"
+	],
+	"wipe_distance": [
+		"1",
+		"1"
+	],
+	"z_hop": [
+		"0.4",
+		"0.4"
+	],
+	"z_hop_types": [
+		"Slope Lift",
+		"Slope Lift"
+	],
+	"single_extruder_multi_material": "0",
+	"extruder_colour": [
+		"#FCE94F",
+		"#FCE94F"
+	],
+	"extruder_offset": [
+		"0x0",
+		"0x0"
+	],
+	"retract_before_wipe": [
+		"70%",
+		"70%"
+	],
+	"retract_lift_above": [
+		"0",
+		"0"
+	],
+	"retract_lift_below": [
+		"0",
+		"0"
+	],
+	"retract_lift_enforce": [
+		"All Surfaces",
+		"All Surfaces"
+	],
+	"retract_on_top_layer": [
+		"1",
+		"1"
+	],
+	"retract_restart_extra": [
+		"0",
+		"0"
+	],
+	"retract_restart_extra_toolchange": [
+		"0",
+		"0"
+	],
+	"retract_when_changing_layer": [
+		"1",
+		"1"
+	],
+	"retraction_distances_when_cut": [
+		"18",
+		"18"
+	],
+	"long_retractions_when_cut": [
+		"0",
+		"0"
+	],
+	"retract_length_toolchange": [
+		"1",
+		"1"
+	],
+	"travel_slope": [
+		"3",
+		"3"
+	],
+	"support_multi_bed_types": "1",
+	"purge_in_prime_tower": "0"
+}

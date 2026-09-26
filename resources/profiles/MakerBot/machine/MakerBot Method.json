@@ -1,0 +1,7 @@
+{
+	"name": "MakerBot Method",
+	"model": "MakerBot Method",
+	"nozzle_diameter": ["0.4"],
+	"technology": "fff",
+	"variant": "0.4 nozzles"
+}

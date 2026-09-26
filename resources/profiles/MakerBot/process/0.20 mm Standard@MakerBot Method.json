@@ -1,0 +1,28 @@
+{
+	"type": "process",
+	"name": "0.20 mm Standard@MakerBot Method",
+	"inherits": "fdm_process_common",
+	"from": "system",
+	"setting_id": "MakerBotMethod020Standard",
+	"compatible_printers": [
+		"MyMarlin 0.4 nozzle"
+	],
+	"adaptive_layer_height": "0",
+	"initial_layer_print_height": "0.2",
+	"layer_height": "0.2",
+	"bottom_shell_layers": "4",
+	"top_shell_layers": "4",
+	"wall_loops": "3",
+	"sparse_infill_density": "15%",
+	"sparse_infill_pattern": "crosshatch",
+	"enable_support": "0",
+	"raft_layers": "0",
+	"brim_type": "no_brim",
+	"wipe": "1",
+	"outer_wall_speed": "80",
+	"inner_wall_speed": "100",
+	"sparse_infill_speed": "120",
+	"initial_layer_speed": "20",
+	"travel_speed": "150",
+	"bed_temperature_initial_layer_only": "60"
+}

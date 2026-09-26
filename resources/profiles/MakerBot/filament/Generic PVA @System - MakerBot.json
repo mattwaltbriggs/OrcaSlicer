@@ -1,0 +1,22 @@
+{
+	"type": "filament",
+	"name": "Generic PVA @System - MakerBot",
+	"inherits": "Generic PVA @System",
+	"from": "system",
+	"setting_id": "MakerBotPVA",
+	"compatible_printers": [
+		"MyMarlin 0.4 nozzle"
+	],
+	"nozzle_temperature": [
+		"160"
+	],
+	"nozzle_temperature_initial_layer": [
+		"160"
+	],
+	"activate_chamber_temp_control": [
+		"1"
+	],
+	"chamber_temperature": [
+		"30"
+	]
+}

@@ -1,0 +1,39 @@
+{
+	"name": "MakerBot",
+	"version": "02.03.00.00",
+	"force_update": "0",
+	"description": "MakerBot configurations",
+	"machine_model_list": [
+		{
+			"name": "MakerBot Method",
+			"sub_path": "machine/MakerBot Method.json"
+		}
+	],
+	"machine_list": [
+		{
+			"name": "MakerBot Method 0.4 nozzles",
+			"sub_path": "machine/MakerBot Method 0.4 nozzles.json"
+		}
+	],
+	"compatible_printers_condition": "printer_model==~'MakerBot .*'",
+	"filament_list": [
+		{
+			"name": "Generic PLA @System - MakerBot",
+			"sub_path": "filament/Generic PLA @System - MakerBot.json"
+		},
+		{
+			"name": "Generic PVA @System - MakerBot",
+			"sub_path": "filament/Generic PVA @System - MakerBot.json"
+		}
+	],
+	"process_list": [
+		{
+			"name": "0.20 mm Standard@MakerBot Method",
+			"sub_path": "process/0.20 mm Standard@MakerBot Method.json"
+		},
+		{
+			"name": "0.12 mm MyCustom@MakerBot_Method",
+			"sub_path": "process/0.12 mm MyCustom@MakerBot_Method.json"
+		}
+	]
+}

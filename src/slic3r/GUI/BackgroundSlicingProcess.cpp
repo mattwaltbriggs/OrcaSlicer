@@ -22,6 +22,7 @@
 #include "libslic3r/Utils.hpp"
 #include "PostProcessor.hpp"
 #include "libslic3r/Format/SL1.hpp"
+#include "libslic3r/Format/MakerBot.hpp"
 #include "libslic3r/Thread.hpp"
 #include "libslic3r/libslic3r.h"
 
@@ -38,7 +39,54 @@
 
 #include "slic3r/GUI/Plater.hpp"
 
+#include <dlfcn.h>
+
 namespace Slic3r {
+
+// Dynamic MakerBot library loading - edit MakerBotLib.cpp and run build_makerbot_lib.sh
+// to rebuild in ~3 seconds without recompiling the full app.
+typedef int (*makerbot_export_fn)(const char*, const char*, char*, void*);
+
+static bool try_dynamic_makerbot(const std::string &gcode_path, const std::string &makerbot_path,
+                                  std::string &error_message, double bed_width, double bed_depth)
+{
+    // Try loading from app bundle or same directory as executable
+    static void *lib = nullptr;
+    static makerbot_export_fn fn = nullptr;
+    static bool tried = false;
+
+    if (!tried) {
+        tried = true;
+        // Check multiple locations
+        const char *paths[] = {
+            "@executable_path/../Frameworks/libMakerBotLib.dylib",
+            "@executable_path/../Resources/libMakerBotLib.dylib",
+            "libMakerBotLib.dylib",
+            nullptr
+        };
+        for (const char **p = paths; *p; ++p) {
+            lib = dlopen(*p, RTLD_NOW);
+            if (lib) {
+                fn = (makerbot_export_fn)dlsym(lib, "makerbot_export");
+                if (fn) break;
+                dlclose(lib);
+                lib = nullptr;
+            }
+        }
+    }
+
+    if (!fn) return false;
+
+    // Build C config struct
+    struct { int t0, t1, bed; double bw, bd; } cfg = {0, 0, 0, bed_width, bed_depth};
+    char err[256] = {};
+    int ret = fn(gcode_path.c_str(), makerbot_path.c_str(), err, &cfg);
+    if (ret != 0) {
+        error_message = err;
+        return false;
+    }
+    return true;
+}
 
 bool SlicingProcessCompletedEvent::critical_error() const
 {
@@ -815,6 +863,42 @@ void BackgroundSlicingProcess::finalize_gcode()
     // Perform the final post-processing of the export path by applying the print statistics over the file name.
     std::string export_path = m_fff_print->print_statistics().finalize_output_path(m_export_path);
     std::string output_path = m_temp_output_path;
+
+    const bool is_makerbot = (export_path.size() > 9 &&
+        export_path.compare(export_path.size() - 9, 9, ".makerbot") == 0);
+
+    if (is_makerbot) {
+        std::string error_message;
+        double bed_width = 0.0, bed_depth = 0.0;
+        const auto &bed = m_fff_print->config().printable_area.values;
+        if (bed.size() >= 3) {
+            double x_lo = bed[0].x(), x_hi = bed[0].x();
+            double y_lo = bed[0].y(), y_hi = bed[0].y();
+            for (const auto &pt : bed) {
+                if (pt.x() < x_lo) x_lo = pt.x();
+                if (pt.x() > x_hi) x_hi = pt.x();
+                if (pt.y() < y_lo) y_lo = pt.y();
+                if (pt.y() > y_hi) y_hi = pt.y();
+            }
+            bed_width = x_hi - x_lo;
+            bed_depth = y_hi - y_lo;
+        }
+        // Try dynamic library first (fast iteration), fall back to compiled-in version
+        bool ok = try_dynamic_makerbot(output_path, export_path, error_message, bed_width, bed_depth);
+        if (!ok && error_message.empty()) {
+            // Dynamic lib not found, use compiled-in version
+            Slic3r::MakerBotConfig cfg;
+            cfg.bed_width = bed_width;
+            cfg.bed_depth = bed_depth;
+            ok = Slic3r::export_makerbot(output_path, export_path, error_message, cfg);
+        }
+        if (!ok)
+            throw Slic3r::ExportError(
+                (boost::format(_utf8(L("Failed to save MakerBot file.\nError message: %1%."))) % error_message).str());
+        m_print->set_status(100, GUI::format(_L("MakerBot file exported to %1%"), export_path));
+        return;
+    }
+
     // Both output_path and export_path ar in-out parameters.
     // If post processed, output_path will differ from m_temp_output_path as run_post_process_scripts() will make a copy of the G-code to not
     // collide with the G-code viewer memory mapping of the unprocessed G-code. G-code viewer maps unprocessed G-code, because m_gcode_result
@@ -890,14 +974,45 @@ void BackgroundSlicingProcess::export_gcode()
     std::string export_path = m_fff_print->print_statistics().finalize_output_path(m_export_path);
     std::string output_path = m_temp_output_path;
 
+    const bool is_makerbot = (export_path.size() > 9 &&
+        export_path.compare(export_path.size() - 9, 9, ".makerbot") == 0);
+
     // FIXME localize the messages
     std::string error_message;
     int copy_ret_val = CopyFileResult::SUCCESS;
     try {
-        copy_ret_val = copy_file(output_path, export_path, error_message, m_export_path_on_removable_media);
+        if (is_makerbot) {
+            double bed_width = 0.0, bed_depth = 0.0;
+            const auto &bed = m_fff_print->config().printable_area.values;
+            if (bed.size() >= 3) {
+                double x_lo = bed[0].x(), x_hi = bed[0].x();
+                double y_lo = bed[0].y(), y_hi = bed[0].y();
+                for (const auto &pt : bed) {
+                    if (pt.x() < x_lo) x_lo = pt.x();
+                    if (pt.x() > x_hi) x_hi = pt.x();
+                    if (pt.y() < y_lo) y_lo = pt.y();
+                    if (pt.y() > y_hi) y_hi = pt.y();
+                }
+                bed_width = x_hi - x_lo;
+                bed_depth = y_hi - y_lo;
+            }
+            bool ok = try_dynamic_makerbot(output_path, export_path, error_message, bed_width, bed_depth);
+            if (!ok && error_message.empty()) {
+                Slic3r::MakerBotConfig cfg;
+                cfg.bed_width = bed_width;
+                cfg.bed_depth = bed_depth;
+                ok = Slic3r::export_makerbot(output_path, export_path, error_message, cfg);
+            }
+            if (!ok)
+                throw Slic3r::ExportError(
+                    (boost::format(_utf8(L("Failed to save MakerBot file.\nError message: %1%."))) % error_message).str());
+        } else {
+            copy_ret_val = copy_file(output_path, export_path, error_message, m_export_path_on_removable_media);
+        }
     } catch (...) {
         throw Slic3r::ExportError(_utf8(L("Unknown error with G-code export")));
     }
+    if (!is_makerbot) {
     switch (copy_ret_val) {
     case CopyFileResult::SUCCESS: break; // no error
     case CopyFileResult::FAIL_COPY_FILE:
@@ -924,6 +1039,7 @@ void BackgroundSlicingProcess::export_gcode()
         // throw Slic3r::ExportError(_utf8(L("Unknown error when exporting G-code.")));
         break;
     }
+    } // !is_makerbot
 
     // BBS
     auto evt                  = new wxCommandEvent(m_event_export_finished_id, GUI::wxGetApp().mainframe->m_plater->GetId());
@@ -932,7 +1048,8 @@ void BackgroundSlicingProcess::export_gcode()
     wxQueueEvent(GUI::wxGetApp().mainframe->m_plater, evt);
 
     // BBS: to be checked. Whether use export_path or output_path.
-    gcode_add_line_number(export_path, m_fff_print->full_print_config());
+    if (!is_makerbot)
+        gcode_add_line_number(export_path, m_fff_print->full_print_config());
 }
 
 // A print host upload job has been scheduled, enqueue it to the printhost job queue

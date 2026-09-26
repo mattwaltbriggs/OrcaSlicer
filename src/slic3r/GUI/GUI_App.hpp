@@ -114,6 +114,8 @@ enum FileType
 
     FT_DRC,
 
+    FT_MAKERBOT,
+
     FT_SIZE,
 };
 

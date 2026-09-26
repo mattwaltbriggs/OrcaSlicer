@@ -1667,9 +1667,6 @@ void PreferencesDialog::create_items()
     });
     g_sizer->Add(item_max_recent_count);
 
-    auto item_recent_models    = create_item_checkbox(_L("Add STL/STEP files to recent files list"), "", "recent_models");
-    g_sizer->Add(item_recent_models);
-
     auto item_gcodes_warning   = create_item_checkbox(_L("Don't warn when loading 3MF with modified G-code"), "", "no_warn_when_modified_gcodes");
     g_sizer->Add(item_gcodes_warning);
 

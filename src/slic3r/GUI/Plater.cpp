@@ -1,5 +1,6 @@
 #include "Plater.hpp"
 #include "../Utils/NetworkAgent.hpp"
+#include <wx/sysopt.h>
 #include "../Utils/NetworkAgentFactory.hpp"
 #include "libslic3r/Config.hpp"
 #include "libslic3r_version.h"
@@ -15314,12 +15315,16 @@ bool Plater::load_files(const wxArrayString& filenames)
     case LoadFilesType::SingleOther: {
         Plater::TakeSnapshot snapshot(this, snapshot_label);
         if (handle_zips(normal_paths)) return true;
-        if (load_files(normal_paths, LoadStrategy::LoadModel, false).empty()) { res = false; }
+        if (load_files(normal_paths, LoadStrategy::LoadModel, false).empty()) {
+            res = false;
+        } else {
+            wxGetApp().mainframe->add_to_recent_imports(normal_paths[0].wstring());
+        }
         break;
     }
     case LoadFilesType::Multiple3MF:
         first_file = std::vector<fs::path>{normal_paths[0]};
-        for (auto i = 0; i < normal_paths.size(); i++) {
+        for (size_t i = 0; i < normal_paths.size(); i++) {
             if (i > 0) { other_file.push_back(normal_paths[i]); }
         };
 
@@ -15332,7 +15337,12 @@ bool Plater::load_files(const wxArrayString& filenames)
         if (handle_zips(normal_paths)) {
             if (normal_paths.empty()) return true;
         }
-        if (load_files(normal_paths, LoadStrategy::LoadModel, true).empty()) { res = false; }
+        if (load_files(normal_paths, LoadStrategy::LoadModel, true).empty()) {
+            res = false;
+        } else {
+            for (auto &path : normal_paths)
+                wxGetApp().mainframe->add_to_recent_imports(path.wstring());
+        }
         break;
     }
 
@@ -15353,7 +15363,12 @@ bool Plater::load_files(const wxArrayString& filenames)
         if (res && handle_zips(other_file)) {
             if (normal_paths.empty()) return true;
         }
-        if (load_files(other_file, LoadStrategy::LoadModel, false).empty()) {  res = false;  }
+        if (load_files(other_file, LoadStrategy::LoadModel, false).empty()) {
+            res = false;
+        } else {
+            for (auto &file : other_file)
+                wxGetApp().mainframe->add_to_recent_imports(file.wstring());
+        }
         break;
     default: break;
     }
@@ -15488,8 +15503,7 @@ void Plater::add_file()
                 p->set_project_name(from_u8(full_path.stem().string()));
             }
             wxGetApp().mainframe->update_title();
-            if (wxGetApp().app_config->get("recent_models") == "true")
-                wxGetApp().mainframe->add_to_recent_projects(paths[0].wstring());
+            wxGetApp().mainframe->add_to_recent_imports(paths[0].wstring());
         }
         break;
     }
@@ -15511,9 +15525,8 @@ void Plater::add_file()
                 p->set_project_name(from_u8(full_path.stem().string()));
             }
             wxGetApp().mainframe->update_title();
-            if (wxGetApp().app_config->get("recent_models") == "true")
-                for (auto &path : paths)
-                    wxGetApp().mainframe->add_to_recent_projects(path.wstring());
+            for (auto &path : paths)
+                wxGetApp().mainframe->add_to_recent_imports(path.wstring());
         }
         break;
     }
@@ -15533,9 +15546,8 @@ void Plater::add_file()
         load_files(tmf_file, LoadStrategy::LoadModel);
         if (!load_files(other_file, LoadStrategy::LoadModel, false).empty()) {
             wxGetApp().mainframe->update_title();
-            if (wxGetApp().app_config->get("recent_models") == "true")
-                for (auto &file : other_file)
-                    wxGetApp().mainframe->add_to_recent_projects(file.wstring());
+            for (auto &file : other_file)
+                wxGetApp().mainframe->add_to_recent_imports(file.wstring());
         }
         break;
     default:break;
@@ -15949,10 +15961,18 @@ void Plater::export_gcode(bool prefer_removable)
     fs::path output_path;
     {
         std::string ext = default_output_file.extension().string();
+        wxString filter;
+        if (printer_technology() == ptFFF)
+            filter = GUI::file_wildcards(FT_GCODE, ext) + "|" + GUI::file_wildcards(FT_MAKERBOT);
+        else
+            filter = GUI::file_wildcards(FT_SL1, ext);
+#ifdef __APPLE__
+        wxSystemOptions::SetOption(wxOSX_FILEDIALOG_ALWAYS_SHOW_TYPES, 1);
+#endif
         wxFileDialog dlg(this, (printer_technology() == ptFFF) ? _L("Save G-code file as:") : _L("Save SLA file as:"),
             start_dir,
             from_path(default_output_file.filename()),
-            GUI::file_wildcards((printer_technology() == ptFFF) ? FT_GCODE : FT_SL1, ext),
+            filter,
             wxFD_SAVE | wxFD_OVERWRITE_PROMPT
         );
         if (dlg.ShowModal() == wxID_OK) {

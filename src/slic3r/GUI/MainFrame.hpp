@@ -24,6 +24,7 @@
 #include "CalibrationPanel.hpp"
 #include "UnsavedChangesDialog.hpp"
 #include "Widgets/SideButton.hpp"
+#include "Widgets/Button.hpp"
 #include "Widgets/SideMenuPopup.hpp"
 #include "FilamentGroupPopup.hpp"
 
@@ -163,6 +164,7 @@ class MainFrame : public DPIFrame
     struct FileHistory : wxFileHistory
     {
         FileHistory(int max) : wxFileHistory(max) {}
+        FileHistory(int max, wxWindowID idBase) : wxFileHistory(max, idBase) {}
         std::wstring GetThumbnailUrl(int index) const;
 
         virtual void AddFileToHistory(const wxString &file);
@@ -178,6 +180,7 @@ class MainFrame : public DPIFrame
     };
 
     FileHistory m_recent_projects;
+    FileHistory m_recent_imports;
 
     enum class ESettingsLayout
     {
@@ -342,6 +345,7 @@ public:
     bool save_project_as(const wxString& filename = wxString());
 
     void        add_to_recent_projects(const wxString& filename);
+    void        add_to_recent_imports(const wxString& filename);
     void        get_recent_projects(boost::property_tree::wptree &tree, int images);
     void        open_recent_project(size_t file_id, wxString const & filename);
     void        remove_recent_project(size_t file_id, wxString const &filename);
@@ -406,6 +410,7 @@ public:
     SideButton* m_slice_option_btn{ nullptr };
     SideButton* m_print_btn{ nullptr };
     SideButton* m_print_option_btn{ nullptr };
+    Button*     m_device_reload_btn{ nullptr };
 
     SidePopup*  m_slice_option_pop_up{ nullptr };
 

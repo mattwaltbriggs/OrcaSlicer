@@ -540,10 +540,6 @@ void AppConfig::set_defaults()
         set("max_recent_count", "18");
     }
 
-    if (get("recent_models").empty()) {
-        set("recent_models", "0");
-    }
-
     // if (get("staff_pick_switch").empty()) {
     //     set_bool("staff_pick_switch", false);
     // }
@@ -1407,6 +1403,36 @@ void AppConfig::set_recent_projects(const std::vector<std::string>& recent_proje
         if (n.length() == 1) n = "00" + n;
         else if (n.length() == 2) n = "0" + n;
         it->second[n] = recent_projects[i];
+    }
+}
+
+std::vector<std::string> AppConfig::get_recent_imports() const
+{
+    std::vector<std::string> ret;
+    const auto it = m_storage.find("recent_imports");
+    if (it != m_storage.end())
+    {
+        for (const std::map<std::string, std::string>::value_type& item : it->second)
+        {
+            ret.push_back(item.second);
+        }
+    }
+    return ret;
+}
+
+void AppConfig::set_recent_imports(const std::vector<std::string>& recent_imports)
+{
+    auto it = m_storage.find("recent_imports");
+    if (it == m_storage.end())
+        it = m_storage.insert(std::map<std::string, std::map<std::string, std::string>>::value_type("recent_imports", std::map<std::string, std::string>())).first;
+
+    it->second.clear();
+    for (unsigned int i = 0; i < (unsigned int)recent_imports.size(); ++i)
+    {
+        auto n = std::to_string(i + 1);
+        if (n.length() == 1) n = "00" + n;
+        else if (n.length() == 2) n = "0" + n;
+        it->second[n] = recent_imports[i];
     }
 }
 

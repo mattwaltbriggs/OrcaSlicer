@@ -297,6 +297,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
     , m_printhost_queue_dlg(new PrintHostQueueDialog(this))
     // BBS
     , m_recent_projects(18)
+    , m_recent_imports(18, wxID_FILE1 + 50)
     , m_settings_dialog(this)
     , diff_dialog(this)
 {
@@ -342,6 +343,7 @@ DPIFrame(NULL, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, BORDERLESS_FRAME_
 
     // BBS
     m_recent_projects.SetMenuPathStyle(wxFH_PATH_SHOW_ALWAYS);
+    m_recent_imports.SetMenuPathStyle(wxFH_PATH_SHOW_ALWAYS);
     MarkdownTip::Recreate(this);
 
     // Fonts were created by the DPIFrame constructor for the monitor, on which the window opened.
@@ -1274,6 +1276,17 @@ void MainFrame::init_tabpanel() {
         else if (panel == m_monitor) {
             //monitor
         }
+        // Show/hide Device tab reload button
+        if (m_device_reload_btn) {
+            bool show_reload = (sel == tpMonitor);
+            if (show_reload != m_device_reload_btn->IsShown()) {
+                if (show_reload)
+                    m_device_reload_btn->Show();
+                else
+                    m_device_reload_btn->Hide();
+                Layout();
+            }
+        }
 #ifndef __APPLE__
         if (sel == tp3DEditor) {
             m_topbar->EnableUndoRedoItems();
@@ -1304,6 +1317,15 @@ void MainFrame::init_tabpanel() {
             break;
         }*/
     });
+
+    if (m_device_reload_btn) {
+        m_device_reload_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+            if (m_printer_view && m_tabpanel->GetCurrentPage() == m_printer_view)
+                m_printer_view->reload();
+            else if (m_monitor && m_tabpanel->GetCurrentPage() == m_monitor)
+                m_monitor->update_all();
+        });
+    }
 
     if (wxGetApp().is_editor()) {
         m_webview         = new WebViewPanel(m_tabpanel);
@@ -1852,6 +1874,13 @@ wxBoxSizer* MainFrame::create_side_tools()
     sizer->Add(slice_panel);
     sizer->Add(FromDIP(15), 0, 0, 0, 0);
     sizer->Add(print_panel);
+
+    m_device_reload_btn = new Button(this, wxEmptyString, "refresh", 0, 16);
+    m_device_reload_btn->SetStyle(ButtonStyle::Regular, ButtonType::Icon);
+    m_device_reload_btn->SetToolTip(_L("Reload"));
+    m_device_reload_btn->Hide();
+    sizer->Add(FromDIP(15), 0, 0, 0, 0);
+    sizer->Add(m_device_reload_btn, 0, wxALIGN_CENTER_VERTICAL);
     sizer->Add(FromDIP(19), 0, 0, 0, 0);
 
     sizer->Layout();
@@ -2770,6 +2799,27 @@ void MainFrame::init_menubar_as_editor()
         append_menu_item(import_menu, wxID_ANY, _L("Import Configs") + dots /*+ "\t" + ctrl + "I"*/, _L("Load configs"),
             [this](wxCommandEvent&) { load_config_file(); }, "menu_import", nullptr,
             [this](){return true; }, this);
+
+        // Recent Imports
+        wxMenu* recent_imports_menu = new wxMenu();
+        wxMenuItem* recent_imports_submenu = append_submenu(import_menu, recent_imports_menu, wxID_ANY, _L("Recent imports"), "");
+        m_recent_imports.UseMenu(recent_imports_menu);
+        Bind(wxEVT_MENU, [this](wxCommandEvent& evt) {
+            size_t file_id = evt.GetId() - (wxID_FILE1 + 50);
+            wxString filename = m_recent_imports.GetHistoryFile(file_id);
+            std::vector<fs::path> paths;
+            paths.emplace_back(into_path(filename));
+            if (m_plater) m_plater->load_files(paths);
+            }, wxID_FILE1 + 50, wxID_FILE1 + 99);
+
+        std::vector<std::string> recent_imports = wxGetApp().app_config->get_recent_imports();
+        std::reverse(recent_imports.begin(), recent_imports.end());
+        for (const std::string& import_file : recent_imports)
+        {
+            m_recent_imports.AddFileToHistory(from_u8(import_file));
+        }
+
+        Bind(wxEVT_UPDATE_UI, [this](wxUpdateUIEvent& evt) { evt.Enable(can_add_models() && (m_recent_imports.GetCount() > 0)); }, recent_imports_submenu->GetId());
 
         append_submenu(fileMenu, import_menu, wxID_ANY, _L("Import"), "");
 
@@ -4110,6 +4160,21 @@ void MainFrame::add_to_recent_projects(const wxString& filename)
         }
         wxGetApp().app_config->set_recent_projects(recent_projects);
         m_webview->SendRecentList(0);
+    }
+}
+
+void MainFrame::add_to_recent_imports(const wxString& filename)
+{
+    if (wxFileExists(filename))
+    {
+        m_recent_imports.AddFileToHistory(filename);
+        std::vector<std::string> recent_imports;
+        size_t count = m_recent_imports.GetCount();
+        for (size_t i = 0; i < count; ++i)
+        {
+            recent_imports.push_back(into_u8(m_recent_imports.GetHistoryFile(i)));
+        }
+        wxGetApp().app_config->set_recent_imports(recent_imports);
     }
 }
 

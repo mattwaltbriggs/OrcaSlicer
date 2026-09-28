@@ -28,6 +28,7 @@ struct PrinterSettings {
     int    tool0_temp = 0;
     int    tool1_temp = 0;
     int    bed_temp   = 0;
+    int    chamber_temp = 0;
     bool   heat_bed   = false;
     double time       = 0.0;
     size_t command_count = 0;
@@ -292,6 +293,18 @@ bool export_makerbot(const std::string &gcode_path, const std::string &makerbot_
                 for (auto &t : pre_tokens) if (!t.empty() && t[0] == 'E') absolute_e = 0.0;
                 continue;
             }
+            // Extract chamber temperature from M141/M191 in start gcode
+            if (line[0] == 'M' && (line.substr(0, 3) == "M141" || line.substr(0, 3) == "M191")) {
+                std::vector<std::string> pre_tokens;
+                boost::split(pre_tokens, line, boost::is_any_of(" "), boost::token_compress_on);
+                for (auto &t : pre_tokens)
+                    if (!t.empty() && t[0] == 'S') {
+                        int temp = std::stoi(t.substr(1));
+                        if (temp > settings.chamber_temp)
+                            settings.chamber_temp = temp;
+                    }
+                continue;
+            }
         }
 
         // Skip all gcode before first LAYER_CHANGE
@@ -467,6 +480,15 @@ bool export_makerbot(const std::string &gcode_path, const std::string &makerbot_
                     settings.heat_bed = true;
                 }
             }
+        } else if (cmd == "M141" || cmd == "M191") {
+            for (size_t i = 1; i < tokens.size(); ++i) {
+                const std::string &tok = tokens[i];
+                if (!tok.empty() && tok[0] == 'S') {
+                    int temp = std::stoi(tok.substr(1));
+                    if (temp > settings.chamber_temp)
+                        settings.chamber_temp = temp;
+                }
+            }
         } else if (cmd == "T0" || cmd == "T1") {
             current_tool = std::stoi(cmd.substr(1));
             commands.push_back(make_change_toolhead_command(current_tool));
@@ -595,8 +617,8 @@ bool export_makerbot(const std::string &gcode_path, const std::string &makerbot_
         {"extruder_temperature", settings.tool0_temp},
         {"extruder_temperatures", {settings.tool0_temp, settings.tool1_temp}},
         {"platform_temperature", settings.heat_bed ? settings.bed_temp : 0},
-        {"build_plane_temperature", 0},
-        {"chamber_temperature", 0},
+        {"build_plane_temperature", settings.heat_bed ? settings.bed_temp : 0},
+        {"chamber_temperature", settings.chamber_temp},
         {"duration_s", std::round(settings.time * 10.0) / 10.0},
         {"commanded_duration_s", std::round(settings.time * 10.0) / 10.0},
         {"total_commands", settings.command_count},
